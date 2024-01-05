@@ -29,15 +29,7 @@ const redisClient = createClient({
 
 await redisClient.connect();
 
-const database = mysql
-  .createPool({
-    host: process.env.DATABASE_HOST,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-    database: "events",
-    port: process.env.DATABASE_PORT,
-  })
-  .promise();
+const database = mysql.createConnection(process.env.PS_DATABASE_HOST).promise();
 
 const postLimiter = rateLimit({
   windowMs: 5000, // 10 seconds
@@ -101,8 +93,6 @@ const getFile = async (userId) => {
 
     return body;
   } catch (err) {
-    console.log(err);
-
     return;
   }
 };
@@ -134,7 +124,7 @@ app.get("/get-profile-image/:userId", async (req, res) => {
   const file = await getFile(userId);
 
   if (!file) {
-    return res.status(404).json({ error: "File not found" });
+    return res.status(204).json({ error: "File not found" });
   }
 
   res.setHeader("Content-Type", "image/jpeg");
@@ -170,14 +160,14 @@ const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
 
   if (!authHeader) {
-    return res.sendStatus(401).json("You are not authorized");
+    return res.status(401).json("You are not authorized");
   }
 
   const token = authHeader.split(" ")[1];
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
     if (err) {
-      return res.sendStatus(403).json("Invalid token");
+      return res.status(403).json("Invalid token");
     }
 
     req.user = user;
@@ -332,7 +322,7 @@ app.post("/users/logout", verifyToken, (req, res) => {
 
   removeRefreshTokenFromRedis(refreshToken);
 
-  res.sendStatus(200).json({ message: "Logged out successfully" });
+  res.status(200).json({ message: "Logged out successfully" });
 });
 
 app.post("/users/refresh", (req, res) => {
