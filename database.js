@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import mysql from "mysql2";
 import { createClient } from "redis";
+import serverless from "serverless-http";
 
 dotenv.config();
 
@@ -601,7 +602,7 @@ app.post("/send-message", [postLimiter, verifyToken], async (req, res) => {
     });
 });
 
-app.use((err, req, res, next) => {
+app.use("/api", (err, req, res, next) => {
   console.error(err.stack);
 
   res.status(500).send("Something broke!");
@@ -610,3 +611,5 @@ app.use((err, req, res, next) => {
 app.listen(8080, () => {
   console.log("Listening on port 8080");
 });
+
+export const handler = serverless(app);
