@@ -10,7 +10,6 @@ import { rateLimit } from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import mysql from "mysql2";
-import { createClient } from "redis";
 
 dotenv.config();
 
@@ -19,15 +18,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const redisClient = createClient({
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-  },
-});
+// const redisClient = createClient({
+//   password: process.env.REDIS_PASSWORD,
+//   socket: {
+//     host: process.env.REDIS_HOST,
+//     port: process.env.REDIS_PORT,
+//   },
+// });
 
-await redisClient.connect();
+// await redisClient.connect();
 
 const database = mysql.createConnection(process.env.PS_DATABASE_HOST).promise();
 
@@ -196,17 +195,17 @@ const generateRefreshToken = (user) => {
   );
 };
 
-const addRefreshTokenToRedis = async (refreshToken) => {
-  await redisClient.sAdd("refreshTokens", refreshToken);
-};
+// const addRefreshTokenToRedis = async (refreshToken) => {
+//   await redisClient.sAdd("refreshTokens", refreshToken);
+// };
 
-const removeRefreshTokenFromRedis = async (refreshToken) => {
-  await redisClient.sRem("refreshTokens", refreshToken);
-};
+// const removeRefreshTokenFromRedis = async (refreshToken) => {
+//   await redisClient.sRem("refreshTokens", refreshToken);
+// };
 
-const refreshTokenExistsInRedis = async (refreshToken) => {
-  return await redisClient.sIsMember("refreshTokens", refreshToken);
-};
+// const refreshTokenExistsInRedis = async (refreshToken) => {
+//   return await redisClient.sIsMember("refreshTokens", refreshToken);
+// };
 
 const getUserById = async (userId) => {
   const query = `
@@ -312,7 +311,7 @@ app.post("/users/login", secureLimiter, async (req, res) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
-  addRefreshTokenToRedis(refreshToken);
+  // addRefreshTokenToRedis(refreshToken);
 
   res.json({ id: user.id, email: user.email, accessToken, refreshToken });
 });
@@ -320,7 +319,7 @@ app.post("/users/login", secureLimiter, async (req, res) => {
 app.post("/users/logout", verifyToken, (req, res) => {
   const { refreshToken } = req.body;
 
-  removeRefreshTokenFromRedis(refreshToken);
+  // removeRefreshTokenFromRedis(refreshToken);
 
   res.status(200).json({ message: "Logged out successfully" });
 });
@@ -334,11 +333,11 @@ app.post("/users/refresh", (req, res) => {
     });
   }
 
-  if (!refreshTokenExistsInRedis(refreshToken)) {
-    return res.status(403).json({
-      message: "Invalid refresh token",
-    });
-  }
+  // if (!refreshTokenExistsInRedis(refreshToken)) {
+  //   return res.status(403).json({
+  //     message: "Invalid refresh token",
+  //   });
+  // }
 
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
     if (err) {
@@ -347,12 +346,12 @@ app.post("/users/refresh", (req, res) => {
       });
     }
 
-    removeRefreshTokenFromRedis(refreshToken);
+    // removeRefreshTokenFromRedis(refreshToken);
 
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
-    addRefreshTokenToRedis(newRefreshToken);
+    // addRefreshTokenToRedis(newRefreshToken);
 
     res
       .status(200)
