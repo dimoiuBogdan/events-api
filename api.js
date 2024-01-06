@@ -11,12 +11,10 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import mysql from "mysql2";
 import { createClient } from "redis";
-import serverless from "serverless-http";
 
 dotenv.config();
 
 const app = express();
-const router = express.Router();
 
 app.use(cors());
 app.use(express.json());
@@ -99,7 +97,7 @@ const getFile = async (userId) => {
   }
 };
 
-router.post(
+app.post(
   "/upload-profile-image/:userId",
   upload.single("imageFormData"),
   async (req, res) => {
@@ -120,7 +118,7 @@ router.post(
   }
 );
 
-router.get("/get-profile-image/:userId", async (req, res) => {
+app.get("/get-profile-image/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   const file = await getFile(userId);
@@ -232,7 +230,7 @@ const updateUserData = async (userId, data, key) => {
   return true;
 };
 
-router.post("/users/register", secureLimiter, async (req, res) => {
+app.post("/users/register", secureLimiter, async (req, res) => {
   const {
     email,
     password,
@@ -294,7 +292,7 @@ router.post("/users/register", secureLimiter, async (req, res) => {
   res.json({ id: user_id, email, accessToken, refreshToken });
 });
 
-router.post("/users/login", secureLimiter, async (req, res) => {
+app.post("/users/login", secureLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -319,7 +317,7 @@ router.post("/users/login", secureLimiter, async (req, res) => {
   res.json({ id: user.id, email: user.email, accessToken, refreshToken });
 });
 
-router.post("/users/logout", verifyToken, (req, res) => {
+app.post("/users/logout", verifyToken, (req, res) => {
   const { refreshToken } = req.body;
 
   removeRefreshTokenFromRedis(refreshToken);
@@ -327,7 +325,7 @@ router.post("/users/logout", verifyToken, (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
-router.post("/users/refresh", (req, res) => {
+app.post("/users/refresh", (req, res) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
@@ -362,7 +360,7 @@ router.post("/users/refresh", (req, res) => {
   });
 });
 
-router.get("/users/:id", verifyToken, async (req, res) => {
+app.get("/users/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   const user = await getUserById(id);
@@ -374,7 +372,7 @@ router.get("/users/:id", verifyToken, async (req, res) => {
   res.json(user);
 });
 
-router.patch("/users/:id", [postLimiter, verifyToken], async (req, res) => {
+app.patch("/users/:id", [postLimiter, verifyToken], async (req, res) => {
   const { id } = req.params;
 
   const { key, value } = req.body;
@@ -487,7 +485,7 @@ const updateEvent = async (id, updatedEvent) => {
   return true;
 };
 
-router.get("/events/date", [postLimiter, verifyToken], async (req, res) => {
+app.get("/events/date", [postLimiter, verifyToken], async (req, res) => {
   const { date } = req.query;
   const userId = req.user.id;
 
@@ -500,7 +498,7 @@ router.get("/events/date", [postLimiter, verifyToken], async (req, res) => {
   res.json(events);
 });
 
-router.get("/events", [postLimiter, verifyToken], async (req, res) => {
+app.get("/events", [postLimiter, verifyToken], async (req, res) => {
   const userId = req.user.id;
 
   const events = await getEvents(userId);
@@ -512,7 +510,7 @@ router.get("/events", [postLimiter, verifyToken], async (req, res) => {
   res.json(events);
 });
 
-router.get("/events/:id", [postLimiter, verifyToken], async (req, res) => {
+app.get("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
 
@@ -525,7 +523,7 @@ router.get("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   res.json(event);
 });
 
-router.post("/events", [postLimiter, verifyToken], async (req, res) => {
+app.post("/events", [postLimiter, verifyToken], async (req, res) => {
   const event = req.body;
   const userId = req.user.id;
 
@@ -534,7 +532,7 @@ router.post("/events", [postLimiter, verifyToken], async (req, res) => {
   res.status(201).json({ id });
 });
 
-router.delete("/events/:id", [postLimiter, verifyToken], async (req, res) => {
+app.delete("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
 
@@ -547,7 +545,7 @@ router.delete("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   res.status(204).send();
 });
 
-router.put("/events/:id", [postLimiter, verifyToken], async (req, res) => {
+app.put("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   const { id } = req.params;
 
   const { name, description, location, from_date, to_date, contact } = req.body;
@@ -574,7 +572,7 @@ router.put("/events/:id", [postLimiter, verifyToken], async (req, res) => {
   res.sendStatus(204);
 });
 
-router.post("/send-message", [postLimiter, verifyToken], async (req, res) => {
+app.post("/send-message", [postLimiter, verifyToken], async (req, res) => {
   const { from, to, message } = req.body;
 
   if (!from || !to || !message) {
@@ -603,16 +601,12 @@ router.post("/send-message", [postLimiter, verifyToken], async (req, res) => {
     });
 });
 
-app.use((err, req, res, next) => {
+app.use("/api", (err, req, res, next) => {
   console.error(err.stack);
 
   res.status(500).send("Something broke!");
 });
 
-app.use("/api", router);
-
 app.listen(8080, () => {
   console.log("Listening on port 8080");
 });
-
-export const handler = serverless(app);
