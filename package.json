@@ -8,7 +8,6 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.5",
-    "netlify-lambda": "^2.0.16",
     "nodemon": "^3.0.2",
     "redis": "^4.6.12",
     "serverless-http": "^3.2.0"
@@ -18,9 +17,8 @@
   "main": "api.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev-start": "nodemon api.js",
-    "start": "./node_modules/.bin/netlify-lambda serve src",
-    "build": "./node_modules/.bin/netlify-lambda build src"
+    "start": "nodemon api.js",
+    "build": "echo Building Functions"
   },
   "type": "module",
   "repository": {
