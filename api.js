@@ -10,6 +10,7 @@ import { rateLimit } from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import mysql from "mysql2";
+import { createClient } from "redis";
 
 dotenv.config();
 
@@ -18,15 +19,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// const redisClient = createClient({
-//   password: process.env.REDIS_PASSWORD,
-//   socket: {
-//     host: process.env.REDIS_HOST,
-//     port: process.env.REDIS_PORT,
-//   },
-// });
+const redisClient = createClient({
+  password: process.env.REDIS_PASSWORD,
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  },
+});
 
-// await redisClient.connect();
+await redisClient.connect();
 
 const database = mysql.createConnection(process.env.PS_DATABASE_HOST).promise();
 
