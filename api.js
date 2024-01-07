@@ -25,6 +25,7 @@ const redisClient = await createClient({
     host: process.env.REDIS_HOST,
     port: process.env.REDIS_PORT,
   },
+  username: "default",
 }).connect();
 
 const database = mysql
@@ -321,20 +322,20 @@ app.post("/users/login", secureLimiter, async (req, res) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
-  addRefreshTokenToRedis(refreshToken);
+  await addRefreshTokenToRedis(refreshToken);
 
   res.json({ id: user.id, email: user.email, accessToken, refreshToken });
 });
 
-app.post("/users/logout", verifyToken, (req, res) => {
+app.post("/users/logout", async (req, res) => {
   const { refreshToken } = req.body;
 
-  removeRefreshTokenFromRedis(refreshToken);
+  await removeRefreshTokenFromRedis(refreshToken);
 
   res.status(200).json({ message: "Logged out successfully" });
 });
 
-app.post("/users/refresh", (req, res) => {
+app.post("/users/refresh", async (req, res) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
@@ -343,30 +344,28 @@ app.post("/users/refresh", (req, res) => {
     });
   }
 
-  if (!refreshTokenExistsInRedis(refreshToken)) {
-    return res.status(403).json({
-      message: "Invalid refresh token",
-    });
-  }
+  jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET,
+    async (err, user) => {
+      if (err) {
+        return res.status(403).json({
+          message: "Invalid refresh token",
+        });
+      }
 
-  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({
-        message: "Invalid refresh token",
-      });
+      await removeRefreshTokenFromRedis(refreshToken);
+
+      const newAccessToken = generateAccessToken(user);
+      const newRefreshToken = generateRefreshToken(user);
+
+      await addRefreshTokenToRedis(newRefreshToken);
+
+      res
+        .status(200)
+        .json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
     }
-
-    removeRefreshTokenFromRedis(refreshToken);
-
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-
-    addRefreshTokenToRedis(newRefreshToken);
-
-    res
-      .status(200)
-      .json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
-  });
+  );
 });
 
 app.get("/users/:id", verifyToken, async (req, res) => {
