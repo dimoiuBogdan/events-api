@@ -439,7 +439,7 @@ const sendResetPasswordEmail = async (user, resetToken) => {
     from: `Bobivents ${process.env.SMTP_FROM}`,
     to: user.email,
     subject: "Reset Password",
-    text: `Click here to reset your password: https://localhost:5173/forgot-password/${resetToken}`,
+    text: `Click here to reset your password: ${process.env.CLIENT_URL}/forgot-password/${resetToken}`,
   };
 
   return await transporter.sendMail(mailOptions);
