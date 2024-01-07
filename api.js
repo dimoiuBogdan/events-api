@@ -10,6 +10,7 @@ import { rateLimit } from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import mysql from "mysql2";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -135,6 +136,26 @@ app.get("/get-profile-image/:userId", async (req, res) => {
 });
 
 // --------------------------- USERS ---------------------------
+
+const findUserBasedOnEmail = async (email, password) => {
+  const query = `
+      SELECT *
+      FROM users
+      WHERE email = ?`;
+
+  const [rows] = await database.query(query, [email]);
+
+  const user = rows[0];
+
+  if (!user || user.email !== email) {
+    return undefined;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+  };
+};
 
 const findUserBasedOnCredentials = async (email, password) => {
   const query = `
@@ -360,6 +381,148 @@ app.patch("/users/:id", [postLimiter, verifyToken], async (req, res) => {
   }
 
   res.sendStatus(204);
+});
+
+// --------------------------- FORGOT PASSWORD ---------------------------
+
+const generateResetToken = (user) => {
+  const payload = {
+    id: user.id,
+    email: user.email,
+  };
+
+  return jwt.sign(payload, process.env.RESET_TOKEN_SECRET, {
+    expiresIn: "1h",
+  });
+};
+
+const isValidResetToken = (token) => {
+  try {
+    jwt.verify(token, process.env.RESET_TOKEN_SECRET);
+    return true;
+  } catch (err) {
+    return false;
+  }
+};
+
+const getUserIdFromResetToken = (token) => {
+  try {
+    const { id } = jwt.verify(token, process.env.RESET_TOKEN_SECRET);
+    return id;
+  } catch (err) {
+    return null;
+  }
+};
+
+const setNewPassword = async (password, userId) => {
+  const query = `
+      UPDATE users
+      SET password = ?
+      WHERE id = ?`;
+
+  const [rows] = await database.query(query, [password, userId]);
+
+  return rows;
+};
+
+const sendResetPasswordEmail = async (user, resetToken) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.net",
+    service: "gmail",
+    auth: {
+      user: process.env.SMTP_FROM,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: `Bobivents ${process.env.SMTP_FROM}`,
+    to: user.email,
+    subject: "Reset Password",
+    text: `Click here to reset your password: https://localhost:5173/forgot-password/${resetToken}`,
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      message: "Missing required fields",
+    });
+  }
+
+  const user = await findUserBasedOnEmail(email);
+
+  if (!user) {
+    return res.status(404).json({
+      message: "User not found",
+    });
+  }
+
+  const resetToken = generateResetToken(user);
+
+  const sendEmail = await sendResetPasswordEmail(user, resetToken);
+
+  if (!sendEmail) {
+    return res.status(500).json({
+      message: "Failed to send email",
+    });
+  }
+
+  res.sendStatus(200);
+});
+
+app.post("/verify-reset-token", async (req, res) => {
+  const { resetToken } = req.body;
+
+  if (!resetToken) {
+    return res.status(400).json({
+      message: "Missing required fields",
+    });
+  }
+
+  const validToken = isValidResetToken(resetToken);
+
+  if (!validToken) {
+    return res.status(403).json({
+      message: "Invalid token",
+    });
+  }
+
+  res.sendStatus(200);
+});
+
+app.post("/set-new-password", async (req, res) => {
+  const { resetToken, password } = req.body;
+
+  if (!resetToken || !password) {
+    return res.status(400).json({
+      message: "Missing required fields",
+    });
+  }
+
+  const validToken = isValidResetToken(resetToken);
+
+  const userId = getUserIdFromResetToken(resetToken);
+
+  if (!validToken) {
+    return res.status(403).json({
+      message: "Invalid token",
+    });
+  }
+
+  const newPasswordSet = setNewPassword(password, userId);
+
+  if (!newPasswordSet) {
+    return res.status(403).json({
+      message: "Invalid token",
+    });
+  }
+
+  res.sendStatus(200);
 });
 
 // --------------------------- EVENTS ---------------------------
