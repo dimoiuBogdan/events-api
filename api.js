@@ -570,7 +570,8 @@ const getEventForCertainDate = async (date, user_id) => {
   const query = `
         SELECT * 
         FROM events
-        WHERE DATE(from_date) = ?
+        WHERE DATE(from_date) <= ?
+        AND DATE(to_date) >= ?
         AND user_id = ${user_id}`;
 
   const MILISECONDS_IN_AN_HOUR = 60 * 60 * 1000;
@@ -583,7 +584,7 @@ const getEventForCertainDate = async (date, user_id) => {
       differenceBetweenZuluAndLocalTimezone * MILISECONDS_IN_AN_HOUR
   ).toISOString();
 
-  const [rows] = await database.query(query, [parsedDate]);
+  const [rows] = await database.query(query, [parsedDate, parsedDate]);
 
   return rows;
 };
@@ -647,6 +648,12 @@ const updateEvent = async (id, updatedEvent) => {
 app.get("/events/date", [postLimiter, verifyToken], async (req, res) => {
   const { date } = req.query;
   const userId = req.user.id;
+
+  if (!date) {
+    return res.status(400).json({
+      message: "Missing required fields",
+    });
+  }
 
   const events = await getEventForCertainDate(date, userId);
 
