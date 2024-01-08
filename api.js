@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -47,6 +48,22 @@ const secureLimiter = rateLimit({
   legacyHeaders: false,
   message: "Too many requests from this IP, please try again later.",
 });
+
+// --------------------------- Password Salt ---------------------------
+
+const hashPassword = async (password) => {
+  const saltRounds = 10;
+
+  const salt = await bcrypt.genSalt(saltRounds);
+
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  return hashedPassword;
+};
+
+const comparePasswords = (password, hashedPassword) => {
+  return bcrypt.compare(password, hashedPassword);
+};
 
 // --------------------------- S3 Images ---------------------------
 
@@ -240,7 +257,7 @@ const updateUserData = async (userId, data, key) => {
 };
 
 app.post("/users/register", secureLimiter, async (req, res) => {
-  const {
+  let {
     email,
     password,
     first_name,
@@ -261,7 +278,10 @@ app.post("/users/register", secureLimiter, async (req, res) => {
       message: "Missing required fields",
     });
 
-  if (password !== confirm_password)
+  password = await hashPassword(password);
+  confirm_password = await hashPassword(confirm_password);
+
+  if (comparePasswords(password, confirm_password) === false)
     return res.status(400).json({
       message: "Passwords do not match",
     });
