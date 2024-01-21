@@ -716,7 +716,7 @@ app.put("/events/:id", [postLimiter, verifyToken], async (req, res) => {
 
   const { name, description, location, from_date, to_date, contact } = req.body;
 
-  if (!from_date || !to_date || !name) {
+  if (!from_date || !name) {
     return res.status(400).json({
       message: "Missing required fields",
     });
