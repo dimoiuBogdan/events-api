@@ -567,11 +567,10 @@ const createEvent = async (event, user_id) => {
 };
 
 const getEventForCertainDate = async (date, user_id) => {
-  const query = `
+  let query = `
         SELECT * 
         FROM events
         WHERE DATE(from_date) <= ?
-        AND DATE(to_date) >= ?
         AND user_id = ${user_id}`;
 
   const MILISECONDS_IN_AN_HOUR = 60 * 60 * 1000;
@@ -584,7 +583,17 @@ const getEventForCertainDate = async (date, user_id) => {
       differenceBetweenZuluAndLocalTimezone * MILISECONDS_IN_AN_HOUR
   ).toISOString();
 
-  const [rows] = await database.query(query, [parsedDate, parsedDate]);
+  const queryParams = [parsedDate];
+
+  if (date.to_date) {
+    query += ` AND (DATE(to_date) >= ? OR to_date IS NULL)`;
+    queryParams.push(parsedDate);
+  } else {
+    query += ` AND (DATE(from_date) >= ?)`;
+    queryParams.push(parsedDate);
+  }
+
+  const [rows] = await database.query(query, queryParams);
 
   return rows;
 };
